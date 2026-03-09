@@ -9,10 +9,6 @@ Included targets:
 - P450 (CYP107D1)
 - GB1
 
-Not included:
-- ALDE simulation/production workflows
-- Visualization pipelines
-
 ## Unified Repository Layout
 
 - `stage1/score_hotspots.py`: Stage 1 hotspot scoring script (P450)
@@ -25,17 +21,17 @@ Not included:
 - `results/lora_plm/`: pretrained weights and beam outputs
 - `model/esm2_650M/`: place your base ESM2 model weights here
 
-## Environment Setup (from local `fsfp2`)
+## Environment Setup
 
-The dependency file is exported from local conda environment `fsfp2`:
+The dependency file is:
 
-- `environment.fsfp2.yml`
+- `environment.kmlsd.yml`
 
 Create and activate:
 
 ```bash
-conda env create -f environment.fsfp2.yml
-conda activate fsfp2
+conda env create -f environment.kmlsd.yml
+conda activate KMLSD
 ```
 
 ## Base Model Weights

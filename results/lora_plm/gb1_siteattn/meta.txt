@@ -1,6 +1,6 @@
 ref_positions=39,40,41,54
 enzyme_name=GB1
-model_path=/home/xcj/ALDE-master/model/esm2_650M
+model_path=model/esm2_650M
 val_loss=0.192131
 head=site_attn
 attn_heads=2

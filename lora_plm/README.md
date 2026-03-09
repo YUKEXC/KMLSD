@@ -1,6 +1,6 @@
 LoRA‑PLM Reranking (Small‑Sample Fine‑Tuning)
 
-This folder provides a minimal, clear pipeline to fine‑tune a local ESM‑style protein language model with LoRA on small labeled data, then rerank large candidate sets. It does not depend on ALDE.
+This folder provides a minimal, clear pipeline to fine‑tune a local ESM‑style protein language model with LoRA on small labeled data, then rerank large candidate sets.
 
 What it does
 - Build full sequences by applying 6‑site combos onto WT using refpos_crossmap.csv.

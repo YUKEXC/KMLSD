@@ -1,8 +1,8 @@
 ---
-base_model: /home/xcj/ALDE-master/model/esm2_650M
+base_model: model/esm2_650M
 library_name: peft
 tags:
-- base_model:adapter:/home/xcj/ALDE-master/model/esm2_650M
+- base_model:adapter:model/esm2_650M
 - lora
 - transformers
 ---
