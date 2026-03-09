@@ -11,11 +11,11 @@ Idea:
   - Output final Top-K (default 30) fully-specified combos with scores.
 
 Usage (example):
-  python 10.14/tools/beam_search_lora.py \
+  python beam/beam_search_lora.py \
     --model_path model/esm2_650M \
     --peft_dir results/lora_plm/esm2_650m_run1_173 \
     --wt_fasta WT.fasta \
-    --crossmap 10.14/out/refpos_crossmap.csv \
+    --crossmap stage1_data/p450/refpos_crossmap.csv \
     --enzyme_name CYP107D1 \
     --ref_positions 68,96,173,192,294,296 \
     --out_dir results/lora_plm/esm2_650m_run1_173/beam \

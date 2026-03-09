@@ -1,15 +1,12 @@
-# 03_make_feature_table_and_score.py
+# score_hotspots.py
 # Join: MSA site features + alanine labels (+ optional ddG/PLM priors) -> Stage I scoring & Top-k.
 #
 # Usage:
-#   python 03_make_feature_table_and_score.py --in_dir out --out_dir out --topk 6 --srs_only
+#   python stage1/score_hotspots.py --in_dir stage1_data/p450 --out_dir stage1_data/p450 --topk 6 --srs_only
 #       [--w_model 1.0 --w_alpha 1.0 --w_delta 0.2
 #        --w_lambda 0.5
 #        --kernel_lambda 1e-2 --kernel_sigma -1.0 --min_train_points 5
 #        --auto_weight --auto_weight_lambda 1e-2]
-
-
-# python 10.14/03_make_feature_table_and_score.py --in_dir 10.14/out --out_dir 10.14/out/10.29 --topk 6 --srs_only --plm_csv 10.14/out/plm_srs_site_summary.csv --w_plm 0.4 --ddg_csv 10.14/out/ddg_srs_site_summary.csv --w_ddg 0.5
 #
 import argparse
 import os

@@ -17,7 +17,7 @@ Quickstart
    python -m lora_plm.train \
      --model_path model/esm2_650M \
      --wt_fasta WT.fasta \
-     --crossmap 10.14/out/refpos_crossmap.csv \
+     --crossmap stage1_data/p450/refpos_crossmap.csv \
      --enzyme_name CYP107D1 \
      --ref_positions 68,96,192,195,294,296 \
      --train_csv data/P450/fitness_round1_training.csv \
@@ -42,7 +42,7 @@ Quickstart
      --model_path model/esm2_650M \
      --peft_dir results/lora_plm/esm2_650m_run1 \
      --wt_fasta WT.fasta \
-     --crossmap 10.14/out/refpos_crossmap.csv \
+     --crossmap stage1_data/p450/refpos_crossmap.csv \
      --enzyme_name CYP107D1 \
      --ref_positions 68,96,192,195,294,296 \
      --candidates_csv data/P450/all_combos.csv \
