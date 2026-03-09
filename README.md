@@ -1,4 +1,4 @@
-# P450 and GB1 Two-Stage Pipeline (Review Package)
+# KMLSD Framework
 
 This repository is intentionally scoped to:
 - Stage 1 hotspot screening
