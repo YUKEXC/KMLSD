@@ -1,0 +1,17 @@
+GB1 whole-sequence Stage-I screening summary
+
+Important note:
+  GB1 in this repo is a 4-site combinatorial dataset. Non-hotspot positions were padded with deterministic
+  background priors so the four experimentally supported residues can be displayed in a whole-sequence Stage-I context.
+
+Top-4 screened positions:
+  #1: pos 40 (D), Score=3.4873, source=observed_hotspot
+  #2: pos 39 (V), Score=3.3223, source=observed_hotspot
+  #3: pos 41 (G), Score=2.5850, source=observed_hotspot
+  #4: pos 54 (V), Score=1.7210, source=observed_hotspot
+
+Observed hotspot evidence:
+  pos 39: single_top3=1.4355, epi_gain=1.8616, ft_top3_pred=0.8395, zs_top3_pred=-0.1192
+  pos 40: single_top3=3.6247, epi_gain=-0.3053, ft_top3_pred=0.5836, zs_top3_pred=-0.1193
+  pos 41: single_top3=0.0828, epi_gain=3.2839, ft_top3_pred=0.0806, zs_top3_pred=-0.1087
+  pos 54: single_top3=1.2026, epi_gain=2.1036, ft_top3_pred=-0.2007, zs_top3_pred=-0.1252

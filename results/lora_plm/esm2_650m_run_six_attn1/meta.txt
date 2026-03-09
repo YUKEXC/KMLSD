@@ -1,0 +1,9 @@
+ref_positions=68,96,173,192,294,296
+enzyme_name=CYP107D1
+model_path=model/esm2_650M
+val_loss=3.002313
+head=sixsite_attn
+attn_heads=4
+attn_layers=2
+attn_dropout=0.1
+attn_ff_mult=2
