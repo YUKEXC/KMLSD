@@ -9,10 +9,6 @@ Supported targets in this package:
 - P450 (CYP107D1)
 - GB1
 
-Not included in this package scope:
-- ALDE simulation/production workflows
-- Visualization scripts and plotting pipelines
-
 ## Package Layout
 
 - `10.14/03_make_feature_table_and_score.py`: Stage 1 hotspot scoring for P450
