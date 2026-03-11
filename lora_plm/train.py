@@ -6,6 +6,8 @@ from typing import List
 
 import numpy as np
 import pandas as pd
+# For deterministic CUDA behavior with torch.use_deterministic_algorithms on CUDA>=10.2.
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 import torch
 from torch.utils.data import DataLoader, random_split
 from transformers import get_linear_schedule_with_warmup

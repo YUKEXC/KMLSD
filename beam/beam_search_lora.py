@@ -33,6 +33,8 @@ from typing import List, Dict, Tuple, Optional
 
 import numpy as np
 import pandas as pd
+# For deterministic CUDA behavior with torch.use_deterministic_algorithms on CUDA>=10.2.
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 import torch
 from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM
 from peft import PeftModel, LoraConfig

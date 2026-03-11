@@ -58,6 +58,7 @@ def run_cmd(cmd: List[str], run: bool) -> None:
         cwd = os.getcwd()
         cur_pp = env.get("PYTHONPATH", "")
         env["PYTHONPATH"] = f"{cwd}{os.pathsep}{cur_pp}" if cur_pp else cwd
+        env.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
         subprocess.run(cmd, check=True, env=env)
 
 
