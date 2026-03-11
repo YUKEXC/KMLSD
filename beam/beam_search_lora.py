@@ -40,13 +40,28 @@ import json
 import inspect
 
 # Reuse utils from lora_plm and regressor head
-# Import from package; fallback to add repo root to sys.path when run by path
+# Import from package; fallback to auto-discover repo root when run by path
 try:
     from lora_plm.utils import read_fasta_first_seq, load_pos_map
     from lora_plm.model import SeqRegressor, SixSiteAttentionRegressor, MultiSiteAttentionRegressor
 except Exception:
     import sys as _sys, os as _os
-    _sys.path.append(_os.path.abspath(_os.path.join(_os.path.dirname(__file__), '..', '..')))
+
+    _here = _os.path.abspath(_os.path.dirname(__file__))
+    _cand = _here
+    _repo_root = None
+    # Walk upward to find a directory that contains lora_plm/
+    for _ in range(6):
+        if _os.path.isdir(_os.path.join(_cand, "lora_plm")):
+            _repo_root = _cand
+            break
+        _parent = _os.path.abspath(_os.path.join(_cand, ".."))
+        if _parent == _cand:
+            break
+        _cand = _parent
+    if _repo_root and _repo_root not in _sys.path:
+        _sys.path.append(_repo_root)
+
     from lora_plm.utils import read_fasta_first_seq, load_pos_map
     from lora_plm.model import SeqRegressor, SixSiteAttentionRegressor, MultiSiteAttentionRegressor
 
