@@ -1,6 +1,6 @@
 # KMLSD Framework
 
-![KMLSD framework](1.jpg)
+![KMLSD framework](fig1.svg)
 
 KMLSD is a two-stage framework:
 - Stage-I (knowledge-guided hotspot identification)
