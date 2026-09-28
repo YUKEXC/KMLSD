@@ -1,10 +1,10 @@
-GB1 whole-sequence Stage-I screening summary
+GB1 illustrative site table (four observed sites; padded background)
 
 Important note:
   GB1 in this repo is a 4-site combinatorial dataset. Non-hotspot positions were padded with deterministic
   background priors so the four experimentally supported residues can be displayed in a whole-sequence Stage-I context.
 
-Top-4 screened positions:
+Four predefined experimentally covered positions:
   #1: pos 40 (D), Score=3.4873, source=observed_hotspot
   #2: pos 39 (V), Score=3.3223, source=observed_hotspot
   #3: pos 41 (G), Score=2.5850, source=observed_hotspot

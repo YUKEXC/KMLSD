@@ -5,33 +5,20 @@ import time
 import argparse
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
-from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM
-from peft import PeftModel
 
 try:
     # when running as module
-    from lora_plm.utils import read_fasta_first_seq, load_pos_map, apply_combo_to_wt
-    from lora_plm.model import SeqRegressor
-except Exception:
+    from lora_plm.utils import read_fasta_first_seq, apply_combo_to_wt
+    from lora_plm.checkpoint import load_regressor
+except ImportError:
     # when running as script
-    from utils import read_fasta_first_seq, load_pos_map, apply_combo_to_wt
-    from model import SeqRegressor
+    from utils import read_fasta_first_seq, apply_combo_to_wt
+    from checkpoint import load_regressor
 
 
 def collate_tokenize_seqs(seqs, tokenizer, device):
     enc = tokenizer(seqs, return_tensors='pt', padding=True, truncation=True)
     return {k: v.to(device) for k, v in enc.items()}
-
-
-def load_base_encoder(model_path: str, local_files_only: bool, trust_remote_code: bool):
-    tok = AutoTokenizer.from_pretrained(model_path, local_files_only=local_files_only, trust_remote_code=trust_remote_code)
-    try:
-        enc = AutoModel.from_pretrained(model_path, local_files_only=local_files_only, trust_remote_code=trust_remote_code)
-    except Exception:
-        mlm = AutoModelForMaskedLM.from_pretrained(model_path, local_files_only=local_files_only, trust_remote_code=trust_remote_code)
-        enc = mlm.esm
-    return tok, enc
 
 
 def main():
@@ -42,8 +29,11 @@ def main():
     ap.add_argument('--crossmap', required=True)
     ap.add_argument('--enzyme_name', required=True)
     ap.add_argument('--ref_positions', required=True)
+    ap.add_argument('--head', default='auto', choices=['auto', 'meanpool', 'site_attn', 'sixsite_attn'])
+    ap.add_argument('--indexing', default='auto', choices=['auto', 'one_based', 'legacy_shifted'])
     ap.add_argument('--candidates_csv', required=True)
     ap.add_argument('--out_csv', required=True)
+    ap.add_argument('--overwrite', action='store_true', help='Replace an existing output; never append implicitly')
     ap.add_argument('--batch_size', type=int, default=64)
     ap.add_argument('--progress_every', type=int, default=50000,
                     help='Print progress every N sequences (approx). Set 0 to disable.')
@@ -52,29 +42,23 @@ def main():
     ap.add_argument('--trust_remote_code', action='store_true')
     args = ap.parse_args()
 
-    os.makedirs(os.path.dirname(args.out_csv), exist_ok=True)
+    if os.path.exists(args.out_csv) and not args.overwrite:
+        raise FileExistsError(f'{args.out_csv} already exists; use --overwrite to replace it')
+    os.makedirs(os.path.dirname(args.out_csv) or '.', exist_ok=True)
     device = torch.device(args.device if torch.cuda.is_available() or args.device == 'cpu' else 'cpu')
 
     ref_positions = [int(x) for x in str(args.ref_positions).split(',') if x.strip()]
     wt_seq = read_fasta_first_seq(args.wt_fasta)
-    r2s = load_pos_map(args.crossmap, args.enzyme_name, ref_positions)
-
-    tokenizer, encoder = load_base_encoder(args.model_path, args.local_files_only, args.trust_remote_code)
-    # load LoRA adapters into encoder
-    encoder = PeftModel.from_pretrained(encoder, args.peft_dir)
-    hidden_size = getattr(encoder.base_model.config, 'hidden_size', getattr(encoder.config, 'hidden_size', 768))
-    base = SeqRegressor(encoder, hidden_size).to(device)
-    # load regression head weights if provided
-    reg_path = os.path.join(args.peft_dir, 'reg_head.pt')
-    if os.path.exists(reg_path):
-        sd = torch.load(reg_path, map_location='cpu')
-        base.reg_head.load_state_dict(sd, strict=False)
-    base.eval()
+    tokenizer, base, r2s, spec = load_regressor(
+        args.model_path, args.peft_dir, args.crossmap, args.enzyme_name, ref_positions,
+        head=args.head, indexing=args.indexing, local_files_only=args.local_files_only,
+        trust_remote_code=args.trust_remote_code, device=device)
+    print(f"[MODEL] head={spec.head} heads={spec.attn_heads} layers={spec.attn_layers} indexing={spec.indexing}")
 
     total = 0
     global_start = time.time()
     last_print_k = 0  # last multiple of progress_every already printed
-    write_header = not os.path.exists(args.out_csv)
+    write_header = True
     for chunk in pd.read_csv(args.candidates_csv, chunksize=200000):
         if 'Combo' not in chunk.columns:
             if chunk.shape[1] == 1:

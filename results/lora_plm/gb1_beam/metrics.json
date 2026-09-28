@@ -1,0 +1,10 @@
+{
+  "mse": 0.7126640447901031,
+  "spearman": 0.7333333333333332,
+  "ndcg@10": 0.916523749872205,
+  "n": 10,
+  "avg_top10_true_rank": 596.0,
+  "best_top10_true_rank": 90,
+  "best_top10_true_combo": "LYGV",
+  "best_top10_true_fitness": 5.075299437
+}

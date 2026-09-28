@@ -26,9 +26,7 @@ Usage (example):
 """
 import argparse
 import os
-import math
 import random
-from collections import defaultdict
 from typing import List, Dict, Tuple, Optional
 
 import numpy as np
@@ -36,17 +34,15 @@ import pandas as pd
 # For deterministic CUDA behavior with torch.use_deterministic_algorithms on CUDA>=10.2.
 os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 import torch
-from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM
-from peft import PeftModel, LoraConfig
 import json
-import inspect
 
 # Reuse utils from lora_plm and regressor head
 # Import from package; fallback to auto-discover repo root when run by path
 try:
-    from lora_plm.utils import read_fasta_first_seq, load_pos_map
-    from lora_plm.model import SeqRegressor, SixSiteAttentionRegressor, MultiSiteAttentionRegressor
-except Exception:
+    from lora_plm.utils import read_fasta_first_seq, apply_partial_to_wt
+    from lora_plm.checkpoint import load_regressor
+    from lora_plm.model import SeqRegressor
+except ImportError:
     import sys as _sys, os as _os
 
     _here = _os.path.abspath(_os.path.dirname(__file__))
@@ -64,31 +60,15 @@ except Exception:
     if _repo_root and _repo_root not in _sys.path:
         _sys.path.append(_repo_root)
 
-    from lora_plm.utils import read_fasta_first_seq, load_pos_map
-    from lora_plm.model import SeqRegressor, SixSiteAttentionRegressor, MultiSiteAttentionRegressor
+    from lora_plm.utils import read_fasta_first_seq, apply_partial_to_wt
+    from lora_plm.checkpoint import load_regressor
+    from lora_plm.model import SeqRegressor
 
 AA20 = list("ACDEFGHIKLMNPQRSTVWY")
 
 
-def load_base_encoder(model_path: str, local_files_only: bool, trust_remote_code: bool):
-    tok = AutoTokenizer.from_pretrained(model_path, local_files_only=local_files_only, trust_remote_code=trust_remote_code)
-    try:
-        enc = AutoModel.from_pretrained(model_path, local_files_only=local_files_only, trust_remote_code=trust_remote_code)
-    except Exception:
-        mlm = AutoModelForMaskedLM.from_pretrained(model_path, local_files_only=local_files_only, trust_remote_code=trust_remote_code)
-        enc = mlm.esm
-    return tok, enc
-
-
 def apply_letters_to_wt(wt_seq: str, ref_positions: List[int], r2s: Dict[int, int], letters: List[Optional[str]]) -> str:
-    s_list = list(wt_seq)
-    for i, rp in enumerate(ref_positions):
-        ch = letters[i]
-        if ch is None:
-            continue
-        si = r2s[rp]
-        s_list[si] = ch
-    return ''.join(s_list)
+    return apply_partial_to_wt(wt_seq, ref_positions, r2s, letters)
 
 
 def batch_predict(seqs: List[str], tokenizer, model: SeqRegressor, device: torch.device, batch_size: int) -> List[float]:
@@ -157,6 +137,7 @@ def main():
     ap.add_argument('--trust_remote_code', action='store_true')
     ap.add_argument('--seed', type=int, default=42)
     ap.add_argument('--head', default='auto', choices=['auto','meanpool','sixsite_attn','site_attn'])
+    ap.add_argument('--indexing', default='auto', choices=['auto', 'one_based', 'legacy_shifted'])
     # MC-dropout for uncertainty (UCB)
     ap.add_argument('--mc_passes', type=int, default=0, help='>1 to enable MC-dropout averaging')
     ap.add_argument('--kappa', type=float, default=0.0, help='UCB bonus multiplier (score = mean + kappa*std)')
@@ -184,117 +165,12 @@ def main():
         raise SystemExit('alphabet must contain at least the 20 canonical AAs')
 
     wt_seq = read_fasta_first_seq(args.wt_fasta)
-    r2s = load_pos_map(args.crossmap, args.enzyme_name, ref_positions)
-
-    # Load encoder + LoRA adapters + regression head
-    tokenizer, encoder = load_base_encoder(args.model_path, args.local_files_only, args.trust_remote_code)
-    # Try to load adapters; if missing/invalid, fall back to base encoder (for zero-shot)
-    if args.peft_dir:
-        cfg_path = os.path.join(args.peft_dir, 'adapter_config.json')
-        if not os.path.exists(cfg_path):
-            print(f"[INFO] adapter_config.json not found in {args.peft_dir}, skip PEFT; using base encoder.")
-        else:
-            try:
-                with open(cfg_path, 'r', encoding='utf-8') as f:
-                    raw = json.load(f)
-                sig = inspect.signature(LoraConfig.__init__)
-                allowed = set(k for k in sig.parameters.keys() if k not in ('self',))
-                filtered = {k: v for k, v in raw.items() if k in allowed}
-                filtered.setdefault('r', 8)
-                filtered.setdefault('lora_alpha', 16)
-                filtered.setdefault('lora_dropout', 0.05)
-                filtered.setdefault('bias', 'none')
-                filtered.setdefault('task_type', 'FEATURE_EXTRACTION')
-                if 'target_modules' not in filtered:
-                    filtered['target_modules'] = []
-                lora_cfg = LoraConfig(**filtered)
-                encoder = PeftModel.from_pretrained(encoder, args.peft_dir, config=lora_cfg,
-                                                    local_files_only=args.local_files_only)
-            except Exception as e2:
-                print(f"[WARN] failed to load LoRA adapters from {args.peft_dir}: {e2}; using base encoder.")
-    hidden_size = getattr(encoder.base_model.config, 'hidden_size', getattr(encoder.config, 'hidden_size', 768))
-    # determine head type
-    meta_path = os.path.join(args.peft_dir, 'meta.txt')
-    head_type = None
-    # default attn hyperparams
-    attn_heads = 4
-    attn_layers = 1
-    attn_dropout = 0.1
-    attn_ff_mult = 2
-    if args.head != 'auto':
-        head_type = args.head
-    else:
-        if os.path.exists(meta_path):
-            try:
-                with open(meta_path, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        if line.startswith('head='):
-                            head_type = line.strip().split('=',1)[1]
-                        elif line.startswith('attn_heads='):
-                            try:
-                                attn_heads = int(line.strip().split('=',1)[1])
-                            except Exception:
-                                pass
-                        elif line.startswith('attn_layers='):
-                            try:
-                                attn_layers = int(line.strip().split('=',1)[1])
-                            except Exception:
-                                pass
-                        elif line.startswith('attn_dropout='):
-                            try:
-                                attn_dropout = float(line.strip().split('=',1)[1])
-                            except Exception:
-                                pass
-                        elif line.startswith('attn_ff_mult='):
-                            try:
-                                attn_ff_mult = int(line.strip().split('=',1)[1])
-                            except Exception:
-                                pass
-            except Exception:
-                head_type = None
-    if head_type == 'sixsite_attn':
-        if num_sites != 6:
-            print("[WARN] sixsite_attn head requires exactly 6 positions; falling back to meanpool.")
-            head_type = 'meanpool'
-    if head_type == 'sixsite_attn':
-        site_seq_positions = [int(r2s[rp]) for rp in ref_positions]
-        model = SixSiteAttentionRegressor(encoder, hidden_size, site_seq_positions,
-                                          n_heads=attn_heads, n_layers=attn_layers, ff_mult=attn_ff_mult, dropout=attn_dropout)
-        # load site_encoder and reg_head if present
-        se_path = os.path.join(args.peft_dir, 'site_encoder.pt')
-        if os.path.exists(se_path):
-            try:
-                sd = torch.load(se_path, map_location='cpu')
-                model.site_encoder.load_state_dict(sd, strict=False)
-            except Exception as e:
-                print(f"[WARN] failed to load site_encoder.pt: {e}")
-        reg_head_path = os.path.join(args.peft_dir, 'reg_head.pt')
-        if os.path.exists(reg_head_path):
-            sd = torch.load(reg_head_path, map_location='cpu')
-            model.reg_head.load_state_dict(sd, strict=False)
-    elif head_type == 'site_attn':
-        site_seq_positions = [int(r2s[rp]) for rp in ref_positions]
-        model = MultiSiteAttentionRegressor(encoder, hidden_size, site_seq_positions,
-                                            n_heads=attn_heads, n_layers=attn_layers, ff_mult=attn_ff_mult, dropout=attn_dropout)
-        se_path = os.path.join(args.peft_dir, 'site_encoder.pt')
-        if os.path.exists(se_path):
-            try:
-                sd = torch.load(se_path, map_location='cpu')
-                model.site_encoder.load_state_dict(sd, strict=False)
-            except Exception as e:
-                print(f"[WARN] failed to load site_encoder.pt: {e}")
-        reg_head_path = os.path.join(args.peft_dir, 'reg_head.pt')
-        if os.path.exists(reg_head_path):
-            sd = torch.load(reg_head_path, map_location='cpu')
-            model.reg_head.load_state_dict(sd, strict=False)
-    else:
-        model = SeqRegressor(encoder, hidden_size)
-        reg_head_path = os.path.join(args.peft_dir, 'reg_head.pt')
-        if os.path.exists(reg_head_path):
-            sd = torch.load(reg_head_path, map_location='cpu')
-            model.reg_head.load_state_dict(sd, strict=False)
-    device = torch.device(args.device if (args.device=='cpu' or torch.cuda.is_available()) else 'cpu')
-    model = model.to(device)
+    device = torch.device(args.device if (args.device == 'cpu' or torch.cuda.is_available()) else 'cpu')
+    tokenizer, model, r2s, spec = load_regressor(
+        args.model_path, args.peft_dir, args.crossmap, args.enzyme_name, ref_positions,
+        head=args.head, indexing=args.indexing, local_files_only=args.local_files_only,
+        trust_remote_code=args.trust_remote_code, device=device)
+    print(f"[MODEL] head={spec.head} heads={spec.attn_heads} layers={spec.attn_layers} indexing={spec.indexing}")
 
     # Helper to score a list of partial assignments
     def score_partials(partials: List[List[Optional[str]]]) -> List[float]:

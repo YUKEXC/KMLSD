@@ -11,6 +11,9 @@
 import argparse
 import os
 import warnings
+import json
+import hashlib
+from pathlib import Path
 import numpy as np
 import pandas as pd
 
@@ -45,11 +48,13 @@ def main():
     ap.add_argument("--in_dir", required=True)
     ap.add_argument("--out_dir", required=True)
     ap.add_argument("--topk", type=int, default=6)
+    ap.add_argument('--protocol', choices=['corrected', 'paper'], default='corrected',
+                    help='corrected excludes missing labels; paper replays the historical Fig. 2 computation')
     ap.add_argument("--srs_only", action="store_true", help="Restrict scoring to canonical SRS windows")
     ap.add_argument("--ddg_csv", default=None, help="Optional ddG site summary CSV with columns [ref_pos, ddg_min]")
-    ap.add_argument("--w_ddg", type=float, default=0.2, help="Weight for ddG contribution (smaller is better)")
+    ap.add_argument("--w_ddg", type=float, default=0.5, help="Weight for ddG contribution (smaller is better)")
     ap.add_argument("--plm_csv", default=None, help="Optional PLM site summary CSV with columns [ref_pos, plm_mean]")
-    ap.add_argument("--w_plm", type=float, default=0.3, help="Weight for PLM positive-mean contribution (larger is better)")
+    ap.add_argument("--w_plm", type=float, default=0.4, help="Weight for PLM positive-mean contribution (larger is better)")
 
     # Supervised model options for Stage I (lightweight)
     ap.add_argument("--supervised_model", default="krr",
@@ -80,6 +85,7 @@ def main():
                     help="Regularization strength when fitting automatic weights")
 
     args = ap.parse_args()
+    os.makedirs(args.out_dir, exist_ok=True)
 
     msa = pd.read_csv(f"{args.in_dir}/msa_site_features.csv")
     lab = pd.read_csv(f"{args.in_dir}/alanine_labels.csv")
@@ -120,6 +126,13 @@ def main():
         if df.empty:
             raise SystemExit("No positions fall within specified SRS regions.")
 
+    # Capture the observation mask before filling feature values.
+    if 'y' not in df.columns:
+        df['y'] = np.nan
+    observed_y = pd.to_numeric(df['y'], errors='coerce')
+    observed_mask = observed_y.notna() & np.isfinite(observed_y)
+    df['y'] = observed_y.where(observed_mask, np.nan)
+    has_specific_risk = 'risk_udca_yield' in df.columns
     fill_cols = [
         "entropy",
         "y",
@@ -139,8 +152,8 @@ def main():
             df[col] = 0.0
         df[col] = df[col].fillna(0.0)
 
-    y_raw = df["y"].copy()
-    mask_y = y_raw.notna()
+    y_raw = df['y'].copy() if args.protocol == 'paper' else observed_y.where(observed_mask, np.nan)
+    mask_y = y_raw.notna() if args.protocol == 'paper' else observed_mask
     df["y"] = y_raw.fillna(0.0)
     df["y_z"] = 0.0
     if mask_y.any():
@@ -301,8 +314,13 @@ def main():
     df["model_pred"] = model_pred
     df["model_pred_z"] = zscore(pd.Series(model_pred))
 
+    primary_risk = df['risk_udca_yield']
+    if args.protocol == 'corrected' and not has_specific_risk:
+        # Use the generic primary-yield risk in the penalty without duplicating
+        # the same feature in the supervised learner's input matrix.
+        primary_risk = df['risk']
     risk_combo = (
-        df["risk_udca_yield"].fillna(0.0) +
+        primary_risk.fillna(0.0) +
         0.5 * df["risk_udca_selectivity"].fillna(0.0) +
         0.5 * df["risk_mdca_yield"].fillna(0.0) +
         0.5 * df["risk_mdca_selectivity"].fillna(0.0)
@@ -370,6 +388,19 @@ def main():
     topk.to_csv(f"{args.out_dir}/top{args.topk}.csv", index=False)
 
     df.sort_values("Score", ascending=False).to_csv(f"{args.out_dir}/stage1_scores.csv", index=False)
+    inputs = [Path(args.in_dir) / 'msa_site_features.csv', Path(args.in_dir) / 'alanine_labels.csv']
+    inputs.extend(Path(p) for p in (args.ddg_csv, args.plm_csv) if p)
+    metadata = {
+        'protocol': args.protocol,
+        'n_candidates': len(df), 'n_observed_labels': int(observed_mask.sum()),
+        'n_training_labels': int(mask_y.sum()),
+        'missing_labels_in_training': int((mask_y & ~observed_mask).sum()),
+        'nonzero_explicit_risk_penalties': int(df['risk_combo'].ne(0).sum()),
+        'weights': {name: value for name, value in vars(args).items() if name.startswith('w_')},
+        'input_sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs if p.is_file()},
+    }
+    (Path(args.out_dir) / 'score_metadata.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
+    print(f"[PROTOCOL] {args.protocol}: {int(observed_mask.sum())} observed labels; {int(mask_y.sum())} training labels")
     print(f"[OK] Wrote: {args.out_dir}/site_features_stage1.csv, stage1_scores.csv, top{args.topk}.csv")
 
 

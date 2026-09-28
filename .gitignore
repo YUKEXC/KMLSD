@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+outputs/
+model/esm2_650M/*
+!model/esm2_650M/.gitkeep

@@ -2,80 +2,38 @@
 
 ![KMLSD framework](figure1.jpg)
 
-KMLSD is a two-stage framework:
-- Stage-I (knowledge-guided hotspot identification)
-- Stage-II (combinatorial sequence space ranking)
+KMLSD combines Stage-I hotspot prioritization with Stage-II surrogate-guided
+combinatorial ranking. This repository contains the P450 (CYP107D1) and GB1 examples.
 
-This repository is intentionally scoped to:
-- Stage-I hotspot identification
-- Stage-II surrogate-model training and combinatorial ranking
-
-Included targets:
-- P450 (CYP107D1)
-- GB1
-
-## Unified Repository Layout
-
-- `stage1/score_hotspots.py`: Stage-I hotspot identification script (P450)
-- `stage1_data/p450/`: P450 Stage-I inputs and intermediate outputs
-- `stage1_data/gb1/`: GB1 Stage-I processed hotspot files
-- `beam/beam_search_lora.py`: Stage-II combinatorial ranking (beam search)
-- `lora_plm/`: Stage-II LoRA surrogate training and prediction code
-- `data/P450/`: P450 training and candidate data
-- `data/GB1/`: GB1 training and truth data
-- `results/lora_plm/`: pretrained Stage-II weights and beam outputs
-- `model/esm2_650M/`: place your base ESM2 model weights here
-
-## Environment Setup
-
-The dependency file is:
-
-- `environment.kmlsd.yml`
-
-Create and activate:
+## Setup
 
 ```bash
+git lfs install
+git lfs pull
 conda env create -f environment.kmlsd.yml
 conda activate KMLSD
 ```
 
-## Base Model Weights
+Place the ESM2 650M base-model weights, configuration and tokenizer in
+`model/esm2_650M/`. LoRA checkpoints do not include the base model. Commands below
+use Bash line continuations; enter them on one line in PowerShell.
 
-Put local ESM2 model files into:
+## Stage-I: P450
 
-- `model/esm2_650M/`
-
-Typical files include `config.json`, `pytorch_model.bin` or `model.safetensors`, tokenizer files, etc.
-
-## Stage-I (Knowledge-Guided Hotspot Identification, P450)
-
-The command below reproduces the P450 hotspot ranking in manuscript Fig. 2d-e
-using the included inputs. The stability (`--w_ddg`) and PLM (`--w_plm`)
-weights for this result are 0.5 and 0.4, respectively.
+The manuscript ranking is in [stage1_scores.csv](stage1_data/p450/stage1_scores.csv)
+and [top6.csv](stage1_data/p450/top6.csv). Recompute it with:
 
 ```bash
 python stage1/score_hotspots.py \
-  --in_dir stage1_data/p450 \
-  --out_dir stage1_data/p450 \
-  --topk 6 --srs_only \
-  --w_model 0.8 \
-  --w_alpha 0.8 \
-  --w_alpha_udca_sel 0.5 \
-  --w_alpha_mdca 0 \
-  --w_alpha_mdca_sel 0 \
-  --w_delta 0.8 \
-  --w_lambda 0.5 \
+  --in_dir stage1_data/p450 --out_dir outputs/p450_stage1 \
+  --protocol paper --topk 6 --srs_only \
+  --w_model 0.8 --w_alpha 0.8 --w_alpha_udca_sel 0.5 \
+  --w_alpha_mdca 0 --w_alpha_mdca_sel 0 --w_delta 0.8 --w_lambda 0.5 \
   --plm_csv stage1_data/p450/plm_srs_site_summary.csv --w_plm 0.4 \
   --ddg_csv stage1_data/p450/ddg_srs_site_summary.csv --w_ddg 0.5
 ```
 
-The full ranking of 99 SRS positions is provided in
-[`stage1_scores.csv`](stage1_data/p450/stage1_scores.csv), and the six selected
-positions are provided in [`top6.csv`](stage1_data/p450/top6.csv).
-Both files retain the full-precision scores; the values below are rounded as in
-manuscript Fig. 2e.
-
-| Rank | Position | Score |
+| Rank | Position | Score (rounded) |
 | --- | --- | --- |
 | 1 | G294 | 5.50 |
 | 2 | S68 | 4.90 |
@@ -84,42 +42,77 @@ manuscript Fig. 2e.
 | 5 | Q96 | 2.91 |
 | 6 | F296 | 2.78 |
 
-## Stage-II (Combinatorial Sequence Space Ranking, P450) - Surrogate Training
+The 99 positions include 85 measured labels. `paper` retains the original
+zero-filling and risk calculation. For new scoring, the default `corrected`
+protocol excludes missing labels from training and uses the generic risk column
+when specific yield-risk data are absent. Each run records these choices and
+input hashes in `score_metadata.json`.
+
+GB1's Stage-I table has four observed sites and 52 padded background positions;
+it is illustrative, not a whole-sequence hotspot-discovery benchmark.
+
+## Stage-II: GB1 results
+
+The [candidate pool](results/lora_plm/gb1_beam/beam_all_final.csv), model and
+[metrics](results/lora_plm/gb1_beam/metrics.json) correspond to the manuscript run.
 
 ```bash
-python lora_plm/train.py --model_path model/esm2_650M --wt_fasta WT.fasta --crossmap stage1_data/p450/refpos_crossmap.csv --enzyme_name CYP107D1 --ref_positions 68,96,173,192,294,296 --train_csv data/P450/fitness_round1_training_six_with_aux.csv --obj_col PlateNormIso2 --mdca_col PlateNormIso1 --obj_lambda 0 --head sixsite_attn --attn_heads 4 --attn_layers 2 --attn_dropout 0.1 --attn_ff_mult 2 --epochs 12 --batch_size 2 --lr 1e-4 --out_dir results/lora_plm/esm2_650m_run_six_attn1 --device cuda:2 --local_files_only --trust_remote_code
+python scripts/evaluate_gb1.py --verify-reference
 ```
 
-## Stage-II (Combinatorial Sequence Space Ranking, P450) - Beam Search
+Evaluation matches candidates to measured fitness, excludes the 76 training
+combinations, and selects the top 10 by predicted score. Spearman and
+shifted-linear NDCG use these same ten candidates.
+
+| Best true rank | Mean true rank | Best fitness | Spearman | NDCG@10 |
+| --- | --- | --- | --- | --- |
+| 90 | 596 | 5.075299437 | 0.7333333333 | 0.9165237499 |
 
 ```bash
-python beam/beam_search_lora.py --model_path model/esm2_650M --peft_dir results/lora_plm/esm2_650m_run_six_attn1 --wt_fasta WT.fasta --crossmap stage1_data/p450/refpos_crossmap.csv --enzyme_name CYP107D1 --ref_positions 68,96,173,192,294,296 --out_dir results/lora_plm/esm2_650m_run_six_attn/beam1 --beam 256 --epsilon 0.05 --diversity_dmin 0 --seeds_from_singles 400 --batch_size 128 --device cuda:2 --local_files_only --trust_remote_code --head auto
+python lora_plm/predict.py \
+  --model_path model/esm2_650M --peft_dir results/lora_plm/gb1_siteattn \
+  --wt_fasta data/GB1/GB1_WT.fasta --crossmap data/GB1/gb1_refpos_crossmap.csv \
+  --enzyme_name GB1 --ref_positions 39,40,41,54 \
+  --candidates_csv results/lora_plm/gb1_beam/beam_all_final.csv \
+  --out_csv outputs/gb1_rescored.csv --device cuda --local_files_only
 ```
 
-## Stage-I and Stage-II (GB1)
+## Stage-II: training and search
 
-Included Stage-I processed files:
-- `stage1_data/gb1/site_features_stage1.csv`
-- `stage1_data/gb1/top4.csv`
-
-Stage-II surrogate training:
+New training uses one-based biological positions converted to zero-based sequence
+indices. Supplied checkpoints retain their original indexing in `meta.txt`;
+newly trained models require their own evaluation.
 
 ```bash
-python lora_plm/train.py --model_path model/esm2_650M --wt_fasta data/GB1/GB1_WT.fasta --crossmap data/GB1/gb1_refpos_crossmap.csv --enzyme_name GB1 --ref_positions 39,40,41,54 --train_csv data/GB1/gb1_stage2_train.csv --obj_col Fitness --head site_attn --attn_heads 2 --attn_layers 1 --attn_dropout 0.1 --attn_ff_mult 2 --rank_loss_weight 0.1 --epochs 20 --batch_size 4 --lr 2e-4 --out_dir results/lora_plm/gb1_siteattn --device cuda --local_files_only --trust_remote_code
+python lora_plm/train.py \
+  --model_path model/esm2_650M --wt_fasta WT.fasta \
+  --crossmap stage1_data/p450/refpos_crossmap.csv --enzyme_name CYP107D1 \
+  --ref_positions 68,96,173,192,294,296 \
+  --train_csv data/P450/fitness_round1_training_six_with_aux.csv --obj_col PlateNormIso2 \
+  --head sixsite_attn --attn_heads 4 --attn_layers 2 \
+  --epochs 12 --batch_size 2 --lr 1e-4 \
+  --out_dir outputs/p450_model --device cuda --local_files_only
+
+python beam/beam_search_lora.py \
+  --model_path model/esm2_650M --peft_dir outputs/p450_model \
+  --wt_fasta WT.fasta --crossmap stage1_data/p450/refpos_crossmap.csv \
+  --enzyme_name CYP107D1 --ref_positions 68,96,173,192,294,296 \
+  --out_dir outputs/p450_beam --beam 256 --epsilon 0.05 \
+  --seeds_from_singles 400 --device cuda --local_files_only
 ```
 
-Stage-II beam search:
+For GB1, use `data/GB1/GB1_WT.fasta`, `data/GB1/gb1_refpos_crossmap.csv`,
+`--enzyme_name GB1 --ref_positions 39,40,41,54`, and
+`--train_csv data/GB1/gb1_stage2_train.csv --obj_col Fitness --head site_attn`.
+Save each new model to an empty output directory. Prediction and beam search read
+the architecture and indexing from checkpoint metadata and require all head weights.
+
+P450 six-letter candidates use site order 68, 96, 173, 192, 294, 296.
+`data/P450/all_combos.csv` is an older five-site input and is not compatible with
+this six-site protocol. A valid small example is `data/P450/six_site_example.csv`.
+
+## Checks
 
 ```bash
-python beam/beam_search_lora.py --model_path model/esm2_650M --peft_dir results/lora_plm/gb1_siteattn --wt_fasta data/GB1/GB1_WT.fasta --crossmap data/GB1/gb1_refpos_crossmap.csv --enzyme_name GB1 --ref_positions 39,40,41,54 --out_dir results/lora_plm/gb1_beam --beam 256 --epsilon 0.05 --diversity_dmin 0 --seeds_from_singles 200 --batch_size 128 --device cuda --local_files_only --trust_remote_code --head site_attn
+python -m unittest discover -s tests -v
 ```
-
-## Pretrained Artifacts Included
-
-- `results/lora_plm/esm2_650m_run_six_attn1/`
-- `results/lora_plm/gb1_siteattn/`
-- `results/lora_plm/gb1_beam/`
-
-## Git LFS Note
-
-`site_encoder.pt` files are tracked with Git LFS.

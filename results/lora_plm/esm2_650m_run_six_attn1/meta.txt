@@ -7,3 +7,4 @@ attn_heads=4
 attn_layers=2
 attn_dropout=0.1
 attn_ff_mult=2
+indexing=legacy_shifted

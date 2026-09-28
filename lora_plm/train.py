@@ -41,7 +41,9 @@ def main():
     ap.add_argument('--wt_fasta', required=True)
     ap.add_argument('--crossmap', required=True)
     ap.add_argument('--enzyme_name', required=True)
-    ap.add_argument('--ref_positions', required=True, help='Comma-separated ref_pos, e.g., 68,96,192,195')
+    ap.add_argument('--ref_positions', required=True, help='Comma-separated ref_pos, e.g., 68,96,173,192,294,296')
+    ap.add_argument('--indexing', choices=['one_based', 'legacy_shifted'], default='one_based',
+                    help='Use one_based for new training; legacy_shifted is only for historical replay')
     ap.add_argument('--train_csv', required=True)
     ap.add_argument('--obj_col', default='PlateNormIso2')
     ap.add_argument('--mdca_col', default=None)
@@ -71,6 +73,8 @@ def main():
     ap.add_argument('--attn_ff_mult', type=int, default=2)
     args = ap.parse_args()
 
+    if os.path.isdir(args.out_dir) and os.listdir(args.out_dir):
+        raise FileExistsError('Training output directory must be empty; keep archived checkpoints unchanged')
     os.makedirs(args.out_dir, exist_ok=True)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -87,7 +91,7 @@ def main():
     # Load mapping and WT
     ref_positions = [int(x) for x in str(args.ref_positions).split(',') if x.strip()]
     wt_seq = read_fasta_first_seq(args.wt_fasta)
-    r2s = load_pos_map(args.crossmap, args.enzyme_name, ref_positions)
+    r2s = load_pos_map(args.crossmap, args.enzyme_name, ref_positions, indexing=args.indexing)
 
     # Load data
     df = pd.read_csv(args.train_csv)
@@ -241,6 +245,12 @@ def main():
                 f.write(f"model_path={args.model_path}\n")
                 f.write(f"val_loss={val_loss:.6f}\n")
                 f.write(f"head={args.head}\n")
+                f.write(f"indexing={args.indexing}\n")
+                f.write(f"seed={args.seed}\n")
+                f.write(f"epochs_requested={args.epochs}\n")
+                f.write(f"selected_epoch={epoch}\n")
+                f.write(f"learning_rate={args.lr}\n")
+                f.write(f"rank_loss_weight={args.rank_loss_weight}\n")
                 if args.head in ('sixsite_attn', 'site_attn'):
                     f.write(f"attn_heads={args.attn_heads}\n")
                     f.write(f"attn_layers={args.attn_layers}\n")

@@ -83,7 +83,9 @@ class MultiSiteAttentionRegressor(nn.Module):
         if len(site_seq_positions) == 0:
             raise ValueError("site_seq_positions must be non-empty")
         self.encoder = encoder
-        self.site_pos = site_seq_positions  # list of ints (1-based)
+        if min(site_seq_positions) < 0 or len(set(site_seq_positions)) != len(site_seq_positions):
+            raise ValueError('Site positions must be unique zero-based sequence indices')
+        self.site_pos = list(site_seq_positions)  # zero-based; ESM prepends one BOS token
         d_model = hidden_size
         enc_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=n_heads,
                                                dim_feedforward=d_model * ff_mult,
@@ -102,7 +104,12 @@ class MultiSiteAttentionRegressor(nn.Module):
         idx = torch.tensor([p + 1 for p in self.site_pos], device=last_hidden.device)
         idx = idx.view(1, -1).expand(last_hidden.size(0), -1)
         B, L, H = last_hidden.size()
-        idx = idx.clamp(min=0, max=L - 1)
+        if idx.max() >= L - 1:
+            raise ValueError('A site lies outside the tokenized protein sequence')
+        if attention_mask is not None:
+            residue_end = attention_mask.sum(dim=1) - 1  # exclude EOS and padding
+            if (idx >= residue_end.unsqueeze(-1)).any():
+                raise ValueError('A site lies beyond a sequence or was truncated')
         gathered = last_hidden.gather(1, idx.unsqueeze(-1).expand(-1, -1, H))
         z = self.site_encoder(gathered)
         pooled = z.mean(dim=1)
