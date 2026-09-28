@@ -49,6 +49,10 @@ Typical files include `config.json`, `pytorch_model.bin` or `model.safetensors`,
 
 ## Stage-I (Knowledge-Guided Hotspot Identification, P450)
 
+The command below reproduces the P450 hotspot ranking in manuscript Fig. 2d-e
+using the included inputs. The stability (`--w_ddg`) and PLM (`--w_plm`)
+weights for this result are 0.5 and 0.4, respectively.
+
 ```bash
 python stage1/score_hotspots.py \
   --in_dir stage1_data/p450 \
@@ -61,9 +65,24 @@ python stage1/score_hotspots.py \
   --w_alpha_mdca_sel 0 \
   --w_delta 0.8 \
   --w_lambda 0.5 \
-  --plm_csv stage1_data/p450/plm_srs_site_summary.csv --w_plm 0.3 \
-  --ddg_csv stage1_data/p450/ddg_srs_site_summary.csv --w_ddg 0.7
+  --plm_csv stage1_data/p450/plm_srs_site_summary.csv --w_plm 0.4 \
+  --ddg_csv stage1_data/p450/ddg_srs_site_summary.csv --w_ddg 0.5
 ```
+
+The full ranking of 99 SRS positions is provided in
+[`stage1_scores.csv`](stage1_data/p450/stage1_scores.csv), and the six selected
+positions are provided in [`top6.csv`](stage1_data/p450/top6.csv).
+Both files retain the full-precision scores; the values below are rounded as in
+manuscript Fig. 2e.
+
+| Rank | Position | Score |
+| --- | --- | --- |
+| 1 | G294 | 5.50 |
+| 2 | S68 | 4.90 |
+| 3 | V192 | 4.04 |
+| 4 | T173 | 3.14 |
+| 5 | Q96 | 2.91 |
+| 6 | F296 | 2.78 |
 
 ## Stage-II (Combinatorial Sequence Space Ranking, P450) - Surrogate Training
 
