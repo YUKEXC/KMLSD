@@ -43,9 +43,30 @@ def pairwise_sq_dists(A, B):
     return np.maximum(dist, 0.0)
 
 
+def load_alanine_labels(path):
+    """Read reported measurements or the legacy ref_pos/y input format."""
+    labels = pd.read_csv(path)
+    if {'Variant', 'YUDCA'}.issubset(labels.columns):
+        positions = labels['Variant'].astype(str).str.extract(r'^[A-Z]([1-9][0-9]*)A$')[0]
+        if positions.isna().any():
+            raise ValueError('Alanine measurements require single-substitution identifiers such as S68A')
+        labels['ref_pos'] = positions.astype(int)
+        values = pd.to_numeric(labels['YUDCA'], errors='coerce')
+        if not (np.isfinite(values) & values.between(0, 1)).all():
+            raise ValueError('YUDCA must contain finite yield fractions between 0 and 1')
+        labels['y'] = values
+    elif not {'ref_pos', 'y'}.issubset(labels.columns):
+        raise ValueError('Expected Variant/YUDCA measurements or legacy ref_pos/y labels')
+    if labels['ref_pos'].duplicated().any():
+        raise ValueError('Alanine input contains duplicate positions')
+    return labels
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--in_dir", required=True)
+    ap.add_argument('--labels_csv', default=None,
+                    help='Alanine measurement CSV; defaults to alanine_scanning.csv in in_dir')
     ap.add_argument("--out_dir", required=True)
     ap.add_argument("--topk", type=int, default=6)
     ap.add_argument('--protocol', choices=['corrected', 'paper'], default='corrected',
@@ -88,7 +109,11 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
 
     msa = pd.read_csv(f"{args.in_dir}/msa_site_features.csv")
-    lab = pd.read_csv(f"{args.in_dir}/alanine_labels.csv")
+    labels_path = Path(args.labels_csv) if args.labels_csv else Path(args.in_dir) / 'alanine_scanning.csv'
+    lab = load_alanine_labels(labels_path)
+    unmatched = sorted(set(lab['ref_pos']) - set(msa['ref_pos']))
+    if unmatched:
+        raise ValueError(f'Alanine positions absent from MSA features: {unmatched}')
 
     df = msa[["ref_pos", "entropy"]].copy()
     df = pd.merge(df, lab, on="ref_pos", how="left")
@@ -388,10 +413,12 @@ def main():
     topk.to_csv(f"{args.out_dir}/top{args.topk}.csv", index=False)
 
     df.sort_values("Score", ascending=False).to_csv(f"{args.out_dir}/stage1_scores.csv", index=False)
-    inputs = [Path(args.in_dir) / 'msa_site_features.csv', Path(args.in_dir) / 'alanine_labels.csv']
+    inputs = [Path(args.in_dir) / 'msa_site_features.csv', labels_path]
     inputs.extend(Path(p) for p in (args.ddg_csv, args.plm_csv) if p)
     metadata = {
         'protocol': args.protocol,
+        'labels_file': str(labels_path),
+        'label_column': 'YUDCA' if {'Variant', 'YUDCA'}.issubset(lab.columns) else 'y',
         'n_candidates': len(df), 'n_observed_labels': int(observed_mask.sum()),
         'n_training_labels': int(mask_y.sum()),
         'missing_labels_in_training': int((mask_y & ~observed_mask).sum()),

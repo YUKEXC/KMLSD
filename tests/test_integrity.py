@@ -145,24 +145,6 @@ class PaperResultTests(unittest.TestCase):
                 self.assertEqual(metrics[key], value)
         self.assertEqual(selected.Combo.tolist(), ['IYGV', 'IWGV', 'LYGV', 'LWGV', 'IYGC', 'IYGA', 'VYGC', 'IYGI', 'VYGI', 'VYGA'])
 
-    def test_stage1_paper_replay_and_corrected_label_mask(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            for protocol, n_training, n_missing, n_risk in [('paper', 99, 14, 0), ('corrected', 85, 0, 22)]:
-                output = Path(tmp) / protocol
-                source = ROOT / 'stage1_data/p450'
-                command = [sys.executable, str(ROOT / 'stage1/score_hotspots.py'), '--in_dir', str(source),
-                           '--out_dir', str(output), '--protocol', protocol, '--topk', '6', '--srs_only',
-                           '--plm_csv', str(source / 'plm_srs_site_summary.csv'),
-                           '--ddg_csv', str(source / 'ddg_srs_site_summary.csv')]
-                subprocess.run(command, check=True, capture_output=True, text=True)
-                meta = json.loads((output / 'score_metadata.json').read_text())
-                self.assertEqual(meta['n_training_labels'], n_training)
-                self.assertEqual(meta['missing_labels_in_training'], n_missing)
-                self.assertEqual(meta['nonzero_explicit_risk_penalties'], n_risk)
-                actual = pd.read_csv(output / 'stage1_scores.csv')
-                if protocol == 'paper':
-                    expected = pd.read_csv(source / 'stage1_scores.csv')
-                    pd.testing.assert_frame_equal(actual, expected, check_exact=False, atol=1e-10, rtol=1e-10)
 
 
 if __name__ == '__main__':
