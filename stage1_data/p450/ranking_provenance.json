@@ -1,0 +1,56 @@
+{
+  "description": "Original manuscript input version, recalculated after excluding T301 from the SRS candidate set",
+  "protocol": "paper",
+  "srs_ranges": [
+    [
+      68,
+      96
+    ],
+    [
+      173,
+      181
+    ],
+    [
+      186,
+      195
+    ],
+    [
+      233,
+      256
+    ],
+    [
+      287,
+      300
+    ],
+    [
+      390,
+      401
+    ]
+  ],
+  "n_candidates": 98,
+  "n_observed_labels": 85,
+  "n_unmeasured_candidates": 13,
+  "label_source": {
+    "commit": "ae57f9ac8203dae3a91f9037330f73c5035050c8",
+    "path": "stage1_data/p450/alanine_labels.csv",
+    "sha256": "56594bfb299685a50765c0011e3b5239e9739525653c961cad784faca60dd290"
+  },
+  "feature_sha256": {
+    "msa_site_features.csv": "11b5eab610382c5d13dc1f4b70aa916e5f032b9746d84a0b07bf4a9a7d6dc2d6",
+    "ddg_srs_site_summary.csv": "6d9a5ca982702773ec50939ed703a527611832f0abe978bf0ef4eb166d45c1f9",
+    "plm_srs_site_summary.csv": "21067cbc4a3d16280ac9a7033ee6e6e759beb20167eb29a03a15fe224ed0ba06"
+  },
+  "output_sha256": {
+    "stage1_scores.csv": "89a37899101a32fae212ea4072dc39955c8f1c40e50589916373eb456fd0c8f2",
+    "top6.csv": "5b082dce67bc42edadc20ec360576549bac0b221df63bbc4819078a669c81e32"
+  },
+  "top6_positions": [
+    294,
+    68,
+    192,
+    173,
+    96,
+    296
+  ],
+  "hash_normalization": "UTF-8 text with LF line endings"
+}

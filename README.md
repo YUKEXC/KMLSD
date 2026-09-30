@@ -38,9 +38,13 @@ use Bash line continuations; enter them on one line in PowerShell.
 
 ## Stage-I: P450
 
-The manuscript ranking is in [stage1_scores.csv](stage1_data/p450/stage1_scores.csv)
-and [top6.csv](stage1_data/p450/top6.csv). These saved results predate the
-measurement update. Score the current alanine measurements with:
+The boundary-corrected manuscript ranking is in
+[stage1_scores.csv](stage1_data/p450/stage1_scores.csv) and
+[top6.csv](stage1_data/p450/top6.csv). It uses the original model-input version
+with SRS5 restricted to 287–300, giving 98 candidates. The selected six sites
+and their order are unchanged. Input provenance is recorded in
+[ranking_provenance.json](stage1_data/p450/ranking_provenance.json).
+Score the current alanine measurements with:
 
 ```bash
 python stage1/score_hotspots.py \
@@ -52,16 +56,18 @@ python stage1/score_hotspots.py \
   --ddg_csv stage1_data/p450/ddg_srs_site_summary.csv --w_ddg 0.5
 ```
 
+Saved ranking for the original input version after the SRS boundary correction:
+
 | Rank | Position | Score (rounded) |
 | --- | --- | --- |
-| 1 | G294 | 5.50 |
-| 2 | S68 | 4.90 |
-| 3 | V192 | 4.04 |
-| 4 | T173 | 3.14 |
-| 5 | Q96 | 2.91 |
-| 6 | F296 | 2.78 |
+| 1 | G294 | 5.46 |
+| 2 | S68 | 4.88 |
+| 3 | V192 | 4.01 |
+| 4 | T173 | 3.12 |
+| 5 | Q96 | 2.89 |
+| 6 | F296 | 2.77 |
 
-The 99 positions include 85 measured labels. The input reader maps `Variant`
+The 98 positions include 85 measured labels and 13 unmeasured positions. The input reader maps `Variant`
 to its position and `YUDCA` to the prediction target. The other reported
 measurement columns remain available in the data table. No risk indicators are
 supplied in the new measurement table, so their contributions default to zero.

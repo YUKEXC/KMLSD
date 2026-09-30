@@ -11,10 +11,21 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from stage1.score_hotspots import load_alanine_labels
+from stage1.score_hotspots import load_alanine_labels, infer_srs_region
 
 
 class ExperimentalDataTests(unittest.TestCase):
+    def test_srs_boundary_matches_the_manuscript_and_public_tables(self):
+        ranges = [(68, 96), (173, 181), (186, 195), (233, 256), (287, 300), (390, 401)]
+        expected = {p for lo, hi in ranges for p in range(lo, hi + 1)}
+        self.assertEqual(len(expected), 98)
+        self.assertEqual(infer_srs_region(300), 5)
+        self.assertEqual(infer_srs_region(301), 0)
+        for filename in ['stage1_scores.csv', 'ddg_srs_site_summary.csv', 'plm_srs_site_summary.csv']:
+            table = pd.read_csv(ROOT / 'stage1_data/p450' / filename)
+            self.assertEqual(len(table), 98)
+            self.assertEqual(set(table.ref_pos), expected)
+
     def test_current_alanine_measurements_are_not_rescaled_or_dropped(self):
         path = ROOT / 'stage1_data/p450/alanine_labels.csv'
         source = pd.read_csv(path)
@@ -76,7 +87,7 @@ class ExperimentalDataTests(unittest.TestCase):
     def test_stage1_uses_current_data_and_records_the_actual_input(self):
         source = ROOT / 'stage1_data/p450'
         with tempfile.TemporaryDirectory() as directory:
-            for protocol, training, missing in [('paper', 99, 14), ('corrected', 85, 0)]:
+            for protocol, training, missing in [('paper', 98, 13), ('corrected', 85, 0)]:
                 with self.subTest(protocol=protocol):
                     output = Path(directory) / protocol
                     subprocess.run([
@@ -87,6 +98,8 @@ class ExperimentalDataTests(unittest.TestCase):
                         '--ddg_csv', str(source / 'ddg_srs_site_summary.csv'),
                     ], check=True, capture_output=True, text=True)
                     metadata = json.loads((output / 'score_metadata.json').read_text())
+                    self.assertEqual(metadata['n_candidates'], 98)
+                    self.assertIn([287, 300], metadata['srs_ranges'])
                     self.assertEqual(metadata['n_observed_labels'], 85)
                     self.assertEqual(metadata['n_training_labels'], training)
                     self.assertEqual(metadata['missing_labels_in_training'], missing)
@@ -94,6 +107,7 @@ class ExperimentalDataTests(unittest.TestCase):
                     self.assertEqual(metadata['label_column'], 'YUDCA')
                     self.assertIn('alanine_labels.csv', metadata['input_sha256'])
                     scored = pd.read_csv(output / 'site_features_stage1.csv')
+                    self.assertNotIn(301, scored.ref_pos.tolist())
                     measured = pd.read_csv(source / 'alanine_labels.csv')
                     joined = measured.merge(scored.dropna(subset=['Variant']), on='Variant', validate='one_to_one')
                     self.assertEqual(len(joined), 85)

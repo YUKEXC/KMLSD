@@ -46,7 +46,10 @@ infer risk flags or additional derived features from the reported measurements.
 The current Stage-II input is `data/P450/fitness_round1_training_six_with_aux.csv`, using
 `Combo` for sequence construction and `--obj_col YUDCA` for the target.
 
-The supplied checkpoints and saved rankings predate this replacement. Their
-original input files remain accessible in Git history. Other
+The supplied checkpoints predate the measurement replacement. The public
+Stage-I ranking retains its original input version and has been recalculated
+for the 98-position SRS boundary. Its input provenance is recorded in
+`stage1_data/p450/ranking_provenance.json`. Original inputs remain accessible
+in Git history. Other
 `fitness_round1_training*.csv` tables are older processed datasets and are not
 the current saturation measurement table.

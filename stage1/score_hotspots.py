@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-SRS_RANGES = [(68, 96), (173, 181), (186, 195), (233, 256), (287, 301), (390, 401)]
+SRS_RANGES = [(68, 96), (173, 181), (186, 195), (233, 256), (287, 300), (390, 401)]
 
 
 def zscore(series):
@@ -417,6 +417,7 @@ def main():
     inputs.extend(Path(p) for p in (args.ddg_csv, args.plm_csv) if p)
     metadata = {
         'protocol': args.protocol,
+        'srs_ranges': SRS_RANGES,
         'labels_file': str(labels_path),
         'label_column': 'YUDCA' if {'Variant', 'YUDCA'}.issubset(lab.columns) else 'y',
         'n_candidates': len(df), 'n_observed_labels': int(observed_mask.sum()),
