@@ -5,6 +5,23 @@
 KMLSD combines Stage-I hotspot prioritization with Stage-II surrogate-guided
 combinatorial ranking. This repository contains the P450 (CYP107D1) and GB1 examples.
 
+## Experimental data
+
+The current P450 experimental measurements are available in
+[data/P450/experimental](data/P450/experimental/README.md):
+
+| Dataset | Records | Excel | CSV |
+| --- | ---: | --- | --- |
+| Alanine scanning | 85 variants | [alanine_scanning.xlsx](data/P450/experimental/alanine_scanning.xlsx) | [alanine_scanning.csv](data/P450/experimental/alanine_scanning.csv) |
+| Six-site saturation mutagenesis | 114 variants | [saturation_mutagenesis.xlsx](data/P450/experimental/saturation_mutagenesis.xlsx) | [saturation_mutagenesis.csv](data/P450/experimental/saturation_mutagenesis.csv) |
+| OM3 reference | 1 reference | [om3_reference.xlsx](data/P450/experimental/om3_reference.xlsx) | [om3_reference.csv](data/P450/experimental/om3_reference.csv) |
+
+These files report mean UDCA and MDCA yields, selectivities, and conversion.
+The CSV files preserve the measurements supplied in the Excel workbooks.
+Existing processed model-input CSVs remain at their original paths for
+reproducing the supplied model runs; they are separate from these experimental
+measurement tables.
+
 ## Setup
 
 ```bash
