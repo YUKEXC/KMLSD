@@ -5,8 +5,8 @@ These tables contain the experimental measurements supplied on 30 September
 
 | Dataset | Excel | CSV | Records |
 | --- | --- | --- | ---: |
-| Alanine scanning | [alanine_scanning.xlsx](../../../stage1_data/p450/alanine_scanning.xlsx) | [alanine_scanning.csv](../../../stage1_data/p450/alanine_scanning.csv) | 85 |
-| Six-site saturation mutagenesis | [saturation_mutagenesis.xlsx](../saturation_mutagenesis.xlsx) | [saturation_mutagenesis.csv](../saturation_mutagenesis.csv) | 114 |
+| Alanine scanning | [alanine_labels.xlsx](../../../stage1_data/p450/alanine_labels.xlsx) | [alanine_labels.csv](../../../stage1_data/p450/alanine_labels.csv) | 85 |
+| Six-site saturation mutagenesis | [fitness_round1_training_six_with_aux.xlsx](../fitness_round1_training_six_with_aux.xlsx) | [fitness_round1_training_six_with_aux.csv](../fitness_round1_training_six_with_aux.csv) | 114 |
 | OM3 reference | [om3_reference.xlsx](om3_reference.xlsx) | [om3_reference.csv](om3_reference.csv) | 1 |
 
 ## Measurement fields
@@ -39,11 +39,11 @@ sequence construction. Stage-I uses its reported position only.
 
 ## Model inputs
 
-The current Stage-I input is `stage1_data/p450/alanine_scanning.csv`. Its reader
+The current Stage-I input is `stage1_data/p450/alanine_labels.csv`. Its reader
 maps the position in `Variant` to `ref_pos` and uses `YUDCA` as `y`. It does not
 infer risk flags or additional derived features from the reported measurements.
 
-The current Stage-II input is `data/P450/saturation_mutagenesis.csv`, using
+The current Stage-II input is `data/P450/fitness_round1_training_six_with_aux.csv`, using
 `Combo` for sequence construction and `--obj_col YUDCA` for the target.
 
 The supplied checkpoints and saved rankings predate this replacement. Their

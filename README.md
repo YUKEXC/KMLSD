@@ -12,8 +12,8 @@ The current P450 experimental measurements are available in
 
 | Dataset | Records | Excel | CSV |
 | --- | ---: | --- | --- |
-| Alanine scanning | 85 variants | [alanine_scanning.xlsx](stage1_data/p450/alanine_scanning.xlsx) | [alanine_scanning.csv](stage1_data/p450/alanine_scanning.csv) |
-| Six-site saturation mutagenesis | 114 variants | [saturation_mutagenesis.xlsx](data/P450/saturation_mutagenesis.xlsx) | [saturation_mutagenesis.csv](data/P450/saturation_mutagenesis.csv) |
+| Alanine scanning | 85 variants | [alanine_labels.xlsx](stage1_data/p450/alanine_labels.xlsx) | [alanine_labels.csv](stage1_data/p450/alanine_labels.csv) |
+| Six-site saturation mutagenesis | 114 variants | [fitness_round1_training_six_with_aux.xlsx](data/P450/fitness_round1_training_six_with_aux.xlsx) | [fitness_round1_training_six_with_aux.csv](data/P450/fitness_round1_training_six_with_aux.csv) |
 | OM3 reference | 1 reference | [om3_reference.xlsx](data/P450/experimental/om3_reference.xlsx) | [om3_reference.csv](data/P450/experimental/om3_reference.csv) |
 
 These files report mean UDCA and MDCA yields, selectivities, and conversion.
@@ -110,7 +110,7 @@ python lora_plm/train.py \
   --model_path model/esm2_650M --wt_fasta WT.fasta \
   --crossmap stage1_data/p450/refpos_crossmap.csv --enzyme_name CYP107D1 \
   --ref_positions 68,96,173,192,294,296 \
-  --train_csv data/P450/saturation_mutagenesis.csv --obj_col YUDCA \
+  --train_csv data/P450/fitness_round1_training_six_with_aux.csv --obj_col YUDCA \
   --head sixsite_attn --attn_heads 4 --attn_layers 2 \
   --epochs 12 --batch_size 2 --lr 1e-4 \
   --out_dir outputs/p450_model --device cuda --local_files_only

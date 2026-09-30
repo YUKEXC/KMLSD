@@ -16,7 +16,7 @@ from stage1.score_hotspots import load_alanine_labels
 
 class ExperimentalDataTests(unittest.TestCase):
     def test_current_alanine_measurements_are_not_rescaled_or_dropped(self):
-        path = ROOT / 'stage1_data/p450/alanine_scanning.csv'
+        path = ROOT / 'stage1_data/p450/alanine_labels.csv'
         source = pd.read_csv(path)
         labels = load_alanine_labels(path)
         self.assertEqual(len(labels), 85)
@@ -27,7 +27,7 @@ class ExperimentalDataTests(unittest.TestCase):
         self.assertIn('S295A', labels.Variant.tolist())
 
     def test_saturation_combinations_match_the_reported_single_mutations(self):
-        table = pd.read_csv(ROOT / 'data/P450/saturation_mutagenesis.csv')
+        table = pd.read_csv(ROOT / 'data/P450/fitness_round1_training_six_with_aux.csv')
         sequence = ''.join(line.strip() for line in (ROOT / 'WT.fasta').read_text().splitlines()
                            if not line.startswith('>'))
         positions = [68, 96, 173, 192, 294, 296]
@@ -92,9 +92,9 @@ class ExperimentalDataTests(unittest.TestCase):
                     self.assertEqual(metadata['missing_labels_in_training'], missing)
                     self.assertEqual(metadata['nonzero_explicit_risk_penalties'], 0)
                     self.assertEqual(metadata['label_column'], 'YUDCA')
-                    self.assertIn('alanine_scanning.csv', metadata['input_sha256'])
+                    self.assertIn('alanine_labels.csv', metadata['input_sha256'])
                     scored = pd.read_csv(output / 'site_features_stage1.csv')
-                    measured = pd.read_csv(source / 'alanine_scanning.csv')
+                    measured = pd.read_csv(source / 'alanine_labels.csv')
                     joined = measured.merge(scored.dropna(subset=['Variant']), on='Variant', validate='one_to_one')
                     self.assertEqual(len(joined), 85)
                     np.testing.assert_allclose(joined.y, joined.YUDCA_x, rtol=0, atol=1e-15)
@@ -104,7 +104,7 @@ class ExperimentalDataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory)
             pd.DataFrame({'ref_pos': [68], 'entropy': [1.]}).to_csv(source / 'msa_site_features.csv', index=False)
-            pd.DataFrame({'Variant': ['R69A'], 'YUDCA': [0.3]}).to_csv(source / 'alanine_scanning.csv', index=False)
+            pd.DataFrame({'Variant': ['R69A'], 'YUDCA': [0.3]}).to_csv(source / 'alanine_labels.csv', index=False)
             result = subprocess.run([
                 sys.executable, str(ROOT / 'stage1/score_hotspots.py'),
                 '--in_dir', str(source), '--out_dir', str(source / 'output'),

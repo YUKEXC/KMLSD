@@ -66,7 +66,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--in_dir", required=True)
     ap.add_argument('--labels_csv', default=None,
-                    help='Alanine measurement CSV; defaults to alanine_scanning.csv in in_dir')
+                    help='Alanine measurement CSV; defaults to alanine_labels.csv in in_dir')
     ap.add_argument("--out_dir", required=True)
     ap.add_argument("--topk", type=int, default=6)
     ap.add_argument('--protocol', choices=['corrected', 'paper'], default='corrected',
@@ -109,7 +109,7 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
 
     msa = pd.read_csv(f"{args.in_dir}/msa_site_features.csv")
-    labels_path = Path(args.labels_csv) if args.labels_csv else Path(args.in_dir) / 'alanine_scanning.csv'
+    labels_path = Path(args.labels_csv) if args.labels_csv else Path(args.in_dir) / 'alanine_labels.csv'
     lab = load_alanine_labels(labels_path)
     unmatched = sorted(set(lab['ref_pos']) - set(msa['ref_pos']))
     if unmatched:
