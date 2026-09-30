@@ -45,7 +45,8 @@ def main():
     ap.add_argument('--indexing', choices=['one_based', 'legacy_shifted'], default='one_based',
                     help='Use one_based for new training; legacy_shifted is only for historical replay')
     ap.add_argument('--train_csv', required=True)
-    ap.add_argument('--obj_col', default='PlateNormIso2')
+    ap.add_argument('--obj_col', default='YUDCA',
+                    help='Target column: YUDCA for current P450 data; Fitness for GB1')
     ap.add_argument('--mdca_col', default=None)
     ap.add_argument('--obj_lambda', type=float, default=0.0)
     ap.add_argument('--weight_col', default=None, help='Optional sample weight column in train_csv')
@@ -263,3 +264,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
